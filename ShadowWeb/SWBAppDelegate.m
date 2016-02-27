@@ -5,7 +5,7 @@
 //  Created by clowwindy on 2/16/13.
 //  Copyright (c) 2013 clowwindy. All rights reserved.
 //
-#import <Crashlytics/Crashlytics.h>
+//#import <Crashlytics/Crashlytics.h>
 
 #import "GZIP.h"
 #import "AppProxyCap.h"
@@ -17,30 +17,34 @@
 
 #define kProxyModeKey @"proxy mode"
 
-int polipo_main(int argc, char **argv);
+int polipo_main(int argc, char** argv);
 void polipo_exit();
 
 @implementation SWBAppDelegate {
     BOOL polipoRunning;
     BOOL polipoEnabled;
-    NSURL *ssURL;
+    NSURL* ssURL;
 }
 
-- (void)updateProxyMode {
-    NSString *proxyMode = [[NSUserDefaults standardUserDefaults] objectForKey:kProxyModeKey];
+- (void)updateProxyMode
+{
+    NSString* proxyMode = [[NSUserDefaults standardUserDefaults] objectForKey:kProxyModeKey];
     if (proxyMode == nil || [proxyMode isEqualToString:@"pac"]) {
         [AppProxyCap setPACURL:@"http://127.0.0.1:8090/proxy.pac"];
-    } else if ([proxyMode isEqualToString:@"global"]) {
-        [AppProxyCap setProxy:AppProxy_SOCKS Host:@"127.0.0.1" Port:1080];
-    } else{
+    }
+    else if ([proxyMode isEqualToString:@"global"]) {
+        [AppProxyCap setProxy:AppProxy_SOCKS Host:@"127.0.0.1" Port:8091];
+    }
+    else {
         [AppProxyCap setNoProxy];
     }
 }
 
-- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+- (BOOL)application:(UIApplication*)application didFinishLaunchingWithOptions:(NSDictionary*)launchOptions
+{
     [self updateProxyMode];
 
-    [Crashlytics startWithAPIKey:@"fa65e4ab45ef1c9c69682529bee0751cd22d5d80"];
+    //[Crashlytics startWithAPIKey:@"fa65e4ab45ef1c9c69682529bee0751cd22d5d80"];
 
     [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
 
@@ -51,100 +55,119 @@ void polipo_exit();
         [self runProxy];
     });
 
-//    [self proxyHttpStart];
-//    [NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(updatePolipo) userInfo:nil repeats:YES];
+    //    [self proxyHttpStart];
+    //    [NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(updatePolipo) userInfo:nil repeats:YES];
 
-    NSData *pacData = [[NSData dataWithContentsOfURL:[[NSBundle mainBundle] URLForResource:@"proxy" withExtension:@"pac.gz"]] gunzippedData];
-    GCDWebServer *webServer = [[GCDWebServer alloc] init];
-    [webServer addHandlerForMethod:@"GET" path:@"/proxy.pac" requestClass:[GCDWebServerRequest class] processBlock:^GCDWebServerResponse *(GCDWebServerRequest *request) {
-             return [GCDWebServerDataResponse responseWithData:pacData contentType:@"application/x-ns-proxy-autoconfig"];
+    NSData* pacData = [[NSData dataWithContentsOfURL:[[NSBundle mainBundle] URLForResource:@"proxy" withExtension:@"pac.gz"]] gunzippedData];
+    NSData* pacData2 = [[NSData dataWithContentsOfURL:[[NSBundle mainBundle] URLForResource:@"proxy" withExtension:@"pac.gz.2"]] gunzippedData];
+    GCDWebServer* webServer = [[GCDWebServer alloc] init];
+    [webServer addHandlerForMethod:@"GET"
+                              path:@"/proxy.pac"
+                      requestClass:[GCDWebServerRequest class]
+                      processBlock:^GCDWebServerResponse*(GCDWebServerRequest* request) {
+                          return [GCDWebServerDataResponse responseWithData:pacData contentType:@"application/x-ns-proxy-autoconfig"];
 
-         }
-    ];
+                      }];
+    [webServer addHandlerForMethod:@"GET"
+                              path:@"/proxy.pac.2"
+                      requestClass:[GCDWebServerRequest class]
+                      processBlock:^GCDWebServerResponse*(GCDWebServerRequest* request) {
+                          return [GCDWebServerDataResponse responseWithData:pacData2 contentType:@"application/x-ns-proxy-autoconfig"];
 
-    [webServer addHandlerForMethod:@"GET" path:@"/apn" requestClass:[GCDWebServerRequest class] processBlock:^GCDWebServerResponse *(GCDWebServerRequest *request) {
-            NSString *apnID = request.query[@"id"];
-            NSData *mobileconfig = [NSData dataWithContentsOfURL:[[NSBundle mainBundle] URLForResource:apnID withExtension:@"mobileconfig"]];
-            return [GCDWebServerDataResponse responseWithData:mobileconfig contentType:@"application/x-apple-aspen-config"];
-         }
-    ];
+                      }];
 
+    [webServer addHandlerForMethod:@"GET"
+                              path:@"/apn"
+                      requestClass:[GCDWebServerRequest class]
+                      processBlock:^GCDWebServerResponse*(GCDWebServerRequest* request) {
+                          NSString* apnID = request.query[@"id"];
+                          NSData* mobileconfig = [NSData dataWithContentsOfURL:[[NSBundle mainBundle] URLForResource:apnID withExtension:@"mobileconfig"]];
+                          return [GCDWebServerDataResponse responseWithData:mobileconfig contentType:@"application/x-apple-aspen-config"];
+                      }];
 
     [webServer startWithPort:8090 bonjourName:@"webserver"];
-//    dispatch_queue_t web = dispatch_queue_create("web", NULL);
-//    dispatch_async(web, ^{
-//        @try {
-//            dispatch_async(dispatch_get_main_queue(), ^{
-//            });
-//        } @catch (NSException *e) {
-//            NSLog(@"webserver quit with error: %@", e);
-//        }
-//    });
+    //    dispatch_queue_t web = dispatch_queue_create("web", NULL);
+    //    dispatch_async(web, ^{
+    //        @try {
+    //            dispatch_async(dispatch_get_main_queue(), ^{
+    //            });
+    //        } @catch (NSException *e) {
+    //            NSLog(@"webserver quit with error: %@", e);
+    //        }
+    //    });
 
     self.networkActivityIndicatorManager = [[SWBNetworkActivityIndicatorManager alloc] init];
-
 
     self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     self.viewController = [[SWBViewController alloc] init];
     self.window.rootViewController = self.viewController;
     [self.window makeKeyAndVisible];
-        
+
     return YES;
 }
 
-
-- (BOOL)application:(UIApplication *)application handleOpenURL:(NSURL *)url {
+- (BOOL)application:(UIApplication*)application handleOpenURL:(NSURL*)url
+{
     return [self application:application openURL:url sourceApplication:nil annotation:nil];
 }
 
-- (BOOL)application:(UIApplication *)application openURL:(NSURL *)url sourceApplication:(NSString *)sourceApplication annotation:(id)annotation {
+- (BOOL)application:(UIApplication*)application openURL:(NSURL*)url sourceApplication:(NSString*)sourceApplication annotation:(id)annotation
+{
     ssURL = url;
     UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:_L(Use this server?) message:[url absoluteString] delegate:self cancelButtonTitle:_L(Cancel) otherButtonTitles:_L(OK), nil];
     [alertView show];
     return YES;
 }
 
-- (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
+- (void)alertView:(UIAlertView*)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex
+{
     if (buttonIndex == 1) {
         [ShadowsocksRunner openSSURL:ssURL];
-    } else {
+    }
+    else {
         // Do nothing
     }
 }
 
-
-- (void)applicationWillResignActive:(UIApplication *)application {
+- (void)applicationWillResignActive:(UIApplication*)application
+{
     // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
     // Use this method to pause ongoing tasks, disable timers, and throttle down OpenGL ES frame rates. Games should use this method to pause the game.
 }
 
-- (void)applicationDidEnterBackground:(UIApplication *)application {
-    // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later. 
+- (void)applicationDidEnterBackground:(UIApplication*)application
+{
+    // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
     // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
-    [((SWBViewController *) self.window.rootViewController) saveData];
+    [((SWBViewController*)self.window.rootViewController)saveData];
 }
 
-- (void)applicationWillEnterForeground:(UIApplication *)application {
+- (void)applicationWillEnterForeground:(UIApplication*)application
+{
     // Called as part of the transition from the background to the inactive state; here you can undo many of the changes made on entering the background.
 }
 
-- (void)applicationDidBecomeActive:(UIApplication *)application {
+- (void)applicationDidBecomeActive:(UIApplication*)application
+{
     // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
 }
 
-- (void)applicationWillTerminate:(UIApplication *)application {
+- (void)applicationWillTerminate:(UIApplication*)application
+{
     // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
-    [((SWBViewController *) self.window.rootViewController) saveData];
+    [((SWBViewController*)self.window.rootViewController)saveData];
 }
 
 #pragma mark - Run proxy
 
-- (void)runProxy {
+- (void)runProxy
+{
     [ShadowsocksRunner reloadConfig];
-    for (; ;) {
+    for (;;) {
         if ([ShadowsocksRunner runProxy]) {
             sleep(1);
-        } else {
+        }
+        else {
             sleep(2);
         }
     }
@@ -152,13 +175,14 @@ void polipo_exit();
 
 #pragma mark polipo
 
--(void) updatePolipo {
+- (void)updatePolipo
+{
     if (!polipoRunning) {
         [self proxyHttpStart];
     }
 }
 
-- (void) proxyHttpStart
+- (void)proxyHttpStart
 {
     if (polipoRunning) {
         NSLog(@"already running");
@@ -167,12 +191,13 @@ void polipo_exit();
     polipoRunning = YES;
     if (polipoEnabled) {
         [NSThread detachNewThreadSelector:@selector(proxyHttpRun) toTarget:self withObject:nil];
-    } else{
+    }
+    else {
         [NSThread detachNewThreadSelector:@selector(proxyHttpRunDisabled) toTarget:self withObject:nil];
     }
 }
 
-- (void) proxyHttpStop
+- (void)proxyHttpStop
 {
     if (!polipoRunning) {
         NSLog(@"not running");
@@ -181,12 +206,13 @@ void polipo_exit();
     polipo_exit();
 }
 
-- (void) proxyHttpRunDisabled {
- @autoreleasepool {
-         polipoRunning = YES;
+- (void)proxyHttpRunDisabled
+{
+    @autoreleasepool {
+        polipoRunning = YES;
         NSLog(@"http proxy start");
-        NSString *configuration = [[NSBundle mainBundle] pathForResource:@"polipo_disable" ofType:@"config"];
-        char *args[5] = {
+        NSString* configuration = [[NSBundle mainBundle] pathForResource:@"polipo_disable" ofType:@"config"];
+        char* args[5] = {
             "test",
             "-c",
             (char*)[configuration UTF8String],
@@ -196,15 +222,16 @@ void polipo_exit();
         polipo_main(5, args);
         NSLog(@"http proxy stop");
         polipoRunning = NO;
-    }}
+    }
+}
 
-- (void) proxyHttpRun
+- (void)proxyHttpRun
 {
     @autoreleasepool {
         polipoRunning = YES;
         NSLog(@"http proxy start");
-        NSString *configuration = [[NSBundle mainBundle] pathForResource:@"polipo" ofType:@"config"];
-        char *args[5] = {
+        NSString* configuration = [[NSBundle mainBundle] pathForResource:@"polipo" ofType:@"config"];
+        char* args[5] = {
             "test",
             "-c",
             (char*)[configuration UTF8String],
@@ -217,7 +244,8 @@ void polipo_exit();
     }
 }
 
-- (void)setPolipo:(BOOL)enabled {
+- (void)setPolipo:(BOOL)enabled
+{
     polipoEnabled = enabled;
 
     [self proxyHttpStop];
